@@ -23,6 +23,10 @@ app.post("/api/chat", async (req, res) => {
         ? req.body.message.trim()
         : "";
 
+    const history = Array.isArray(req.body?.history)
+      ? req.body.history
+      : [];
+
     if (!message) {
       return res.status(400).json({
         error: "Message is required."
@@ -39,9 +43,27 @@ app.post("/api/chat", async (req, res) => {
       apiKey: process.env.GEMINI_API_KEY
     });
 
+    const contents = [
+      ...history
+        .filter(
+          item =>
+            item &&
+            (item.role === "user" || item.role === "model") &&
+            typeof item.text === "string"
+        )
+        .map(item => ({
+          role: item.role,
+          parts: [{ text: item.text }]
+        })),
+      {
+        role: "user",
+        parts: [{ text: message }]
+      }
+    ];
+
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite",
-      contents: message
+      contents
     });
 
     const text =
