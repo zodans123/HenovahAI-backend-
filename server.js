@@ -23,9 +23,10 @@ app.post("/api/chat", async (req, res) => {
         ? req.body.message.trim()
         : "";
 
-    const history = Array.isArray(req.body?.history)
-      ? req.body.history
-      : [];
+    const history =
+      Array.isArray(req.body?.history)
+        ? req.body.history
+        : [];
 
     if (!message) {
       return res.status(400).json({
@@ -43,31 +44,52 @@ app.post("/api/chat", async (req, res) => {
       apiKey: process.env.GEMINI_API_KEY
     });
 
-    const contents = [
-      ...history
-        .filter(
-          item =>
-            item &&
-            (item.role === "user" || item.role === "model") &&
-            typeof item.text === "string"
-        )
-        .map(item => ({
-          role: item.role,
-          parts: [{ text: item.text }]
-        })),
-      {
-        role: "user",
-        parts: [{ text: message }]
-      }
-    ];
+    /*
+      Convert the saved HenovahAI conversation
+      into context that Gemini can understand.
+    */
+
+    const conversationContext = history
+      .slice(-20)
+      .map((item: any) => {
+        const userMessage =
+          typeof item?.message === "string"
+            ? item.message.trim()
+            : "";
+
+        if (!userMessage) {
+          return "";
+        }
+
+        return `User: ${userMessage}`;
+      })
+      .filter(Boolean)
+      .join("\n");
+
+    const prompt = `
+You are HenovahAI, a helpful, friendly, intelligent AI assistant.
+
+Use the conversation context below to understand what the user has already told you.
+
+Conversation context:
+${conversationContext || "No previous conversation context."}
+
+The user's latest message is:
+${message}
+
+Answer the latest message naturally and directly.
+If the user refers to something they said earlier in this conversation, use the conversation context when appropriate.
+Do not mention the technical conversation context or explain how it was provided.
+`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite",
-      contents
+      contents: prompt
     });
 
     const text =
-      response.text || "I couldn't generate a response.";
+      response.text ||
+      "I couldn't generate a response.";
 
     res.json({
       success: true,
@@ -77,14 +99,20 @@ app.post("/api/chat", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Gemini request failed:", error);
+    console.error(
+      "Gemini request failed:",
+      error
+    );
 
     res.status(500).json({
-      error: "HenovahAI could not generate a response."
+      error:
+        "HenovahAI could not generate a response."
     });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`HenovahAI backend running on port ${PORT}`);
+  console.log(
+    `HenovahAI backend running on port ${PORT}`
+  );
 });
