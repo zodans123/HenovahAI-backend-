@@ -46,7 +46,7 @@ app.post("/api/chat", async (req, res) => {
 
     const contents = history
       .slice(-20)
-      .map((item: any) => {
+      .map((item) => {
         const text =
           typeof item?.message === "string"
             ? item.message.trim()
@@ -86,7 +86,7 @@ app.post("/api/chat", async (req, res) => {
     const response =
       await ai.models.generateContent({
         model: "gemini-3.1-flash-lite",
-        contents: contents as any
+        contents: contents
       });
 
     const text =
