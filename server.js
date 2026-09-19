@@ -44,48 +44,50 @@ app.post("/api/chat", async (req, res) => {
       apiKey: process.env.GEMINI_API_KEY
     });
 
-    /*
-      Convert the saved HenovahAI conversation
-      into context that Gemini can understand.
-    */
-
-    const conversationContext = history
+    const contents = history
       .slice(-20)
       .map((item: any) => {
-        const userMessage =
+        const text =
           typeof item?.message === "string"
             ? item.message.trim()
             : "";
 
-        if (!userMessage) {
-          return "";
+        if (!text) {
+          return null;
         }
 
-        return `User: ${userMessage}`;
+        const role =
+          item?.role === "assistant"
+            ? "model"
+            : "user";
+
+        return {
+          role: role,
+          parts: [
+            {
+              text: text
+            }
+          ]
+        };
       })
-      .filter(Boolean)
-      .join("\n");
+      .filter(Boolean);
 
-    const prompt = `
-You are HenovahAI, a helpful, friendly, intelligent AI assistant.
+    if (!contents.length) {
+      contents.push({
+        role: "user",
+        parts: [
+          {
+            text: message
+          }
+        ]
+      });
+    }
 
-Use the conversation context below to understand what the user has already told you.
-
-Conversation context:
-${conversationContext || "No previous conversation context."}
-
-The user's latest message is:
-${message}
-
-Answer the latest message naturally and directly.
-If the user refers to something they said earlier in this conversation, use the conversation context when appropriate.
-Do not mention the technical conversation context or explain how it was provided.
-`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
-      contents: prompt
-    });
+    const response =
+      await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: contents as any
+      });
 
     const text =
       response.text ||
